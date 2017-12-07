@@ -10,14 +10,15 @@ class InfoSpider(object):
 	"""爬取微博个人信息"""
 	headers = ""
 	uid_list = []
-	MAX_NUMBER = 5000
+	MAX_NUMBER = 10
 	uid_instance = None #数据库连接对象
 	def __init__(self):
 
 		#初始化header 和URL
 		self.headers = {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:45.0) Gecko/20100101 Firefox/45.0',
-				   'Cookie':'_T_WM=23abbae898e0d46c36553156789cd4ce;\
-				    SUB=_2A256NaTHDeRxGeVO4lAQ-SvJzDmIHXVZ2cyPrDV6PUJbrdAKLUvVkW1LHeswrTXg_dvXGChJMnM8A_txA8Bdig..;\
+				   'Cookie':'_T_WM=b00af18e55ee7683bacbe14db3fb28c8;\
+					SCF=AlcOL1vReKjOdK-bxrE6LJaIkLpFJAzljbaqpGIqUOmZ2fDACPjpAEb94I5b5rwtS3Ezjn-7L0XDu4U_suP8Rvg.;\
+				    SUB=_2A253LXWYDeRhGeVO4lAQ-SvJzDmIHXVU7hvQrDV6PUJbkdBeLW7xkW1NTX0Dj0sGEZk88SupZ87CaFKt45a0-D0m;\
 				    gsid_CTandWM=4umIf2d91SNM45GJuyTgZcYq79h'
 				  }
 	def _request_url(self,url):
@@ -39,13 +40,18 @@ class InfoSpider(object):
 		此id 为唯一id，且有必要做唯一存储
 		"""
 		self.uid_instance = DataOperate()
-		self.uid_list.append(number)
-		for num in self.uid_list:  
-			print "正在获取%d的follow uid..."% num
+		self.uid_list = list(self.uid_instance.select_data())
+		if number not in self.uid_list:
+			self.uid_list.append(number)
+		
+		for num in self.uid_list:
+#			print "正在获取%s的follow uid..."% num
 			pattern = re.compile('[0-9]{10}')
 			for count in range(50):
-				url = 'http://weibo.cn/%d/fans?vt=4&page=%d'% (num,count+1)
-				# url = 'http://weibo.cn/%d/follow?page=%d&vt=4'% (num,count+1)
+				print type(num)
+				# url = "http://weibo.cn/%s/fans?vt=4&page=%d"% (list(num)[0],count+1)
+				url = "http://weibo.cn/%d/follow?page=%d&vt=4"% (num,count+1)
+				print url
 				html = self._request_url(url)
 				list_elemet = html.xpath('//table')
 				if len(list_elemet) == 0:
@@ -61,7 +67,7 @@ class InfoSpider(object):
 								self.uid_instance.insert_data(temp,element) #将uid和对应的url放入到数据库中
 								self.uid_list.append(temp)
 								print "%d 被加进来了,数量达到%d"% (temp,len(self.uid_list))
-								if len(self.uid_list) == self.MAX_NUMBER:
+								if len(self.uid_list) >= self.MAX_NUMBER:
 									print "uid_list 已达到最大值,请处理"
 									self.uid_instance._commit_data()  #提交数据到数据库
 									return
@@ -86,13 +92,12 @@ class InfoSpider(object):
 		URL的用例为:http://weibo.cn/3092195575/info?vt=4
 		也就是这里的中间的10位数字不同，其它都一样
 		"""
-		key = "黑龙江"
-		area = "地区"
+		key = ""
+		area = ""
 		self.uid_instance = DataOperate()
-		temp_uid_list = self.uid_instance.select_data() #选取数据的id，信息
-		temp_uid_list = list(temp_uid_list)
+		temp_uid_list = list(self.uid_instance.select_data()) #选取数据的id，信息
 		for number in temp_uid_list:
-			url  = 'http://weibo.cn/%s/info?vt=4'% (list(number)[0].encode('utf-8'))
+			url  = 'http://weibo.cn/%s/info?vt=4'% (list(number)[0])
 			html = self._request_url(url)
 			second = html.xpath('//div[@class="c"][3]/text()')
 			judge = 0
@@ -103,8 +108,9 @@ class InfoSpider(object):
 						break
 			if judge == 1:
 				temp = ''.join(second) # list to string
-				print str(list(number))+' '+temp.encode('utf-8')
-				self.uid_instance.update_info(list(number)[0].encode('utf-8'),temp)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+				print str(number)+' '+temp.encode('utf-8')
+				self.uid_instance.update_info(list(number)[0],temp)
+				
 			else:
 				print "the number %s need to remove from the uid_list"%(number)
 				# temp_uid_list.remove(number)
@@ -149,6 +155,7 @@ class InfoSpider(object):
 				else:
 					d[i] = d[i] + 1
 		li = sorted(d.items(), lambda x, y: cmp(x[1], y[1]), reverse=True)
+		print type(li)
 		for i in range(500):
 			if len(li[i][0].encode('utf-8'))>4: #筛选字节数大于4的字节
 				print li[i][0].encode('utf-8')+' '+str(li[i][1])
@@ -160,5 +167,5 @@ userInfo.getFollow(3092195575)
 userInfo.getOthersInfo()
 # print "个人信息抓取完毕"
 # print "抓取的总数为:%d\n剩下的用户数为:%d"%(userInfo.MAX_NUMBER,len(userInfo.uid_list))
-userInfo.crawlContent()
-userInfo.word_analysis()
+#userInfo.crawlContent()
+#userInfo.word_analysis()
